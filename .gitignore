@@ -1,0 +1,6 @@
+
+venv/
+
+.env
+
+bot_data/*.json
