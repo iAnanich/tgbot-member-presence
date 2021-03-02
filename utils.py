@@ -12,10 +12,14 @@ def _find_all_usernames(string: str) -> List[str]:
     return re.findall(tg_nick_pattern, string)
 
 
-def extract_usernames_from_args(arguments: List[str]) -> List[str]:
+def extract_usernames_from_args(arguments: List[str], clean: bool = False) -> List[str]:
     """Returns list of usernames extracted from command arguments."""
     return [
-        # take first and only element of a list
-        _find_all_usernames(arg)[0]
-        for arg in arguments
+        full_username_list[0][1:] if clean else full_username_list[0]
+        for full_username_list in (
+            # take first and only element of a list
+            _find_all_usernames(arg)
+            for arg in arguments
+        )
+        if full_username_list
     ]

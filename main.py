@@ -48,10 +48,43 @@ class CHAT_DATA:
     MEMBERS_BY_USERNAME = 'members_by_username'
 
 
-def _remember_chat_member(user: User, context: CallbackContext):
-    context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME][user.username] = {
-        'id': user.id,
-    }
+def _restore_chat_data(update: Update, context: CallbackContext) -> None:
+    if not context.chat_data:
+        context.chat_data.update(storage.restore_chat_data(chat_id=update.effective_chat.id))
+
+
+def _save_chat_data(update: Update, context: CallbackContext) -> None:
+    storage.save_chat_data(chat_id=update.effective_chat.id, chat_data=context.chat_data)
+
+
+def _remember_chat_member(username: str, user_data: dict, context: CallbackContext) -> None:
+    context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME][username] = user_data
+
+
+def _remember_user(user: User, context: CallbackContext) -> None:
+    return _remember_chat_member(
+        username=user.username,
+        user_data={
+            'id': user.id,
+        },
+        context=context,
+    )
+
+
+def _remember_caller(update: Update, context: CallbackContext) -> bool:
+    """
+    Remember command caller in chat data, and if it was not in chat data yet, return True.
+    Otherwise, return False.
+    """
+    if update.effective_user.username not in context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME]:
+        _remember_user(user=update.effective_user, context=context)
+        return True
+    else:
+        return False
+
+
+def _forget_chat_member(username: str, context: CallbackContext) -> None:
+    context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].pop(username)
 
 
 # Define a few command handlers. These usually take the two arguments update and
@@ -68,47 +101,123 @@ def command_help(update: Update, context: CallbackContext) -> None:
 
 def command_check(update: Update, context: CallbackContext) -> None:
     """Check presence of users listed in message, reply to which calls the command."""
+    _restore_chat_data(update=update, context=context)
 
-    if not context.chat_data:
-        context.chat_data.update(storage.restore_chat_data(chat_id=update.effective_chat.id))
+    _remember_caller(update=update, context=context)
 
-    if update.effective_user.username not in context.chat_data['members_by_username']:
-        _remember_chat_member(user=update.effective_user, context=context)
+    _save_chat_data(update=update, context=context)
 
     present_usernames = set(context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys())
-    mentioned_usernames = set(
-        # username without @ char
-        un[1:]
-        for un in extract_usernames_from_args(arguments=context.args)
-    )
+    mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
     missing_usernames = mentioned_usernames.difference(present_usernames)
 
     if missing_usernames:
-        update.message.reply_text(
-            f'Following users are missing: {" ".join("@"+un for un in missing_usernames)}'
-        )
+        reply_msg = f'Following chat members are missing: {" ".join("@"+un for un in missing_usernames)}'
     else:
-        update.message.reply_text(
-            f'All mentioned users are present!',
-        )
+        reply_msg = f'All mentioned users are present!'
+    update.effective_message.reply_text(reply_msg)
+
+
+def command_check_in(update: Update, context: CallbackContext) -> None:
+    """Remember that user that called a command is a member of chat."""
+    _restore_chat_data(update=update, context=context)
+
+    caller_is_new = _remember_caller(update=update, context=context)
+
+    _save_chat_data(update=update, context=context)
+
+    if caller_is_new:
+        reply_msg = f'Ok, now I will remember that you are in this chat.'
+    else:
+        reply_msg = f'Don\'t worry, I remember that you are here :)'
+    update.effective_message.reply_text(reply_msg)
+
+
+def command_forget(update: Update, context: CallbackContext) -> None:
+    """Forget mentioned users."""
+    _restore_chat_data(update=update, context=context)
+
+    _remember_caller(update=update, context=context)
+
+    mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
+
+    mismatched_usernames = set()
+    forgot_usernames = set()
+    caller_mentioned = False
+    for username in mentioned_usernames:
+        if username == update.effective_user.username:
+            caller_mentioned = True
+            continue
+        try:
+            _forget_chat_member(username=username, context=context)
+        except KeyError:
+            mismatched_usernames.add(username)
+        else:
+            forgot_usernames.add(username)
+
+    _save_chat_data(update=update, context=context)
+
+    reply_msg = ''
+    if forgot_usernames:
+        reply_msg += 'Successfully forgot following chat members: ' + ' '.join(forgot_usernames) + '\n'
+    if mismatched_usernames:
+        reply_msg += 'Haven\'t found anything about following chat members: ' + ' '.join(mismatched_usernames) + '\n'
+    if caller_mentioned:
+        reply_msg += 'Not going to forget You. If you really want to, ask someone else to do it.'
+    if not reply_msg:
+        reply_msg += 'Can not recognise any valid username.'
+    update.effective_message.reply_text(
+        reply_msg,
+    )
+
+
+def command_remember(update: Update, context: CallbackContext) -> None:
+    """Remember mentioned users as if they are in chat."""
+    _restore_chat_data(update=update, context=context)
+
+    _remember_caller(update=update, context=context)
+
+    mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
+    for username in mentioned_usernames:
+        if username in context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys():
+            continue
+        _remember_chat_member(username=username, user_data={}, context=context)
+
+    _save_chat_data(update=update, context=context)
+
+    reply_msg = f'Successfully remembered following chat members: ' + ' '.join(mentioned_usernames)
+    update.effective_message.reply_text(reply_msg)
+
+
+def command_list(update: Update, context: CallbackContext) -> None:
+    """Remember mentioned users as if they are in chat."""
+    _restore_chat_data(update=update, context=context)
+
+    _remember_caller(update=update, context=context)
+
+    _save_chat_data(update=update, context=context)
+
+    all_usernames = context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys()
+    reply_msg = f'Listing all chat members in my memory:\n* ' + '\n* '.join(all_usernames)
+    update.effective_message.reply_text(reply_msg)
 
 
 def update_members(update: Update, context: CallbackContext) -> None:
     """Remember new chat users."""
-
-    if not context.chat_data:
-        context.chat_data.update(storage.restore_chat_data(chat_id=update.effective_chat.id))
+    _restore_chat_data(update=update, context=context)
 
     if CHAT_DATA.MEMBERS_BY_USERNAME not in context.chat_data:
         context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME] = []
 
+    # remember new members
     for user in update.message.new_chat_members:
-        _remember_chat_member(user=user, context=context)
+        _remember_user(user=user, context=context)
 
+    # forget left members
     if update.message.left_chat_member:
-        context.chat_data.pop(update.message.left_chat_member.username)
+        _forget_chat_member(username=update.message.left_chat_member.username, context=context)
 
-    storage.save_chat_data(chat_id=update.effective_chat.id, chat_data=context.chat_data)
+    _save_chat_data(update=update, context=context)
 
 
 def main():
@@ -123,13 +232,14 @@ def main():
     dispatcher.add_handler(CommandHandler("start", command_start))
     dispatcher.add_handler(CommandHandler("help", command_help))
     dispatcher.add_handler(CommandHandler("check", command_check))
+    dispatcher.add_handler(CommandHandler("check_in", command_check_in))
+    dispatcher.add_handler(CommandHandler("forget", command_forget))
+    dispatcher.add_handler(CommandHandler("remember", command_remember))
+    dispatcher.add_handler(CommandHandler("list", command_list))
 
-    # TODO: /check_in command for user to mark themselves as members of chat
     # TODO: /begin @username1 @username2 command that begins tracking of users joining a chat
 
-    # TODO: /forget @username1 @username2 command for removing user from data of that chat
     # TODO: /mention_all command for mentioning all users remembered
-    # TODO: /list command lists all remembered users
 
     # on noncommand i.e message
     dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, update_members))
