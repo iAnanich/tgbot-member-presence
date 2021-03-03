@@ -92,8 +92,17 @@ def _remember_caller(update: Update, context: CallbackContext) -> bool:
         return False
 
 
-def _forget_chat_member(username: str, context: CallbackContext) -> None:
-    context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].pop(username)
+def _forget_chat_member(username: str, context: CallbackContext) -> bool:
+    """
+    Remove (forget) chat member data from chat data.
+    Return True if data was removed, otherwise return False (if username was not in chat data).
+    """
+    try:
+        context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].pop(username)
+    except KeyError:
+        return False
+    else:
+        return True
 
 
 # Define a few command handlers. These usually take the two arguments update and
@@ -142,6 +151,21 @@ def command_check_in(update: Update, context: CallbackContext) -> None:
     update.effective_message.reply_text(reply_msg)
 
 
+def command_forget_me(update: Update, context: CallbackContext) -> None:
+    """Forget chat member who called this command."""
+    _restore_chat_data(update=update, context=context)
+
+    caller_was_in_memory = _forget_chat_member(update.effective_user.username, context=context)
+
+    _save_chat_data(update=update, context=context)
+
+    if caller_was_in_memory:
+        reply_msg = 'Ok, now I don\'t know who You are.'
+    else:
+        reply_msg = 'I already don\'t know who You are.'
+    update.effective_message.reply_text(reply_msg)
+
+
 def command_forget(update: Update, context: CallbackContext) -> None:
     """Forget mentioned users."""
     _restore_chat_data(update=update, context=context)
@@ -157,12 +181,10 @@ def command_forget(update: Update, context: CallbackContext) -> None:
         if username == update.effective_user.username:
             caller_mentioned = True
             continue
-        try:
-            _forget_chat_member(username=username, context=context)
-        except KeyError:
-            mismatched_usernames.add(username)
-        else:
+        if _forget_chat_member(username=username, context=context):
             forgot_usernames.add(username)
+        else:
+            mismatched_usernames.add(username)
 
     _save_chat_data(update=update, context=context)
 
@@ -172,7 +194,7 @@ def command_forget(update: Update, context: CallbackContext) -> None:
     if mismatched_usernames:
         reply_msg += 'Haven\'t found anything about following chat members: ' + ' '.join(mismatched_usernames) + '\n'
     if caller_mentioned:
-        reply_msg += 'Not going to forget You. If you really want to, ask someone else to do it.'
+        reply_msg += 'Not going to forget You that simple. Use /forget_me command for this.'
     if not reply_msg:
         reply_msg += 'Can not recognise any valid username.'
     update.effective_message.reply_text(
@@ -231,8 +253,13 @@ def update_members(update: Update, context: CallbackContext) -> None:
 
 def main():
     """Start the bot."""
+
+    TGBOT_APIKEY = env.str('TGBOT_APIKEY')
+    ADMIN_USERNAMES = env.str('TGBOT_ADMIN_USERNAMES').split(',')
+    filter_admins = Filters.user(username=ADMIN_USERNAMES)
+
     # Create the Updater and pass it your bot's token.
-    updater = Updater(env.str('TGBOT_APIKEY'))
+    updater = Updater(TGBOT_APIKEY)
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
@@ -242,14 +269,14 @@ def main():
     dispatcher.add_handler(CommandHandler("help", command_help))
     dispatcher.add_handler(CommandHandler("check", command_check))
     dispatcher.add_handler(CommandHandler("check_in", command_check_in))
-    dispatcher.add_handler(CommandHandler("forget", command_forget))
-    dispatcher.add_handler(CommandHandler("remember", command_remember))
+    dispatcher.add_handler(CommandHandler("forget_me", command_forget_me))
+    dispatcher.add_handler(CommandHandler("forget", command_forget, filters=filter_admins))
+    dispatcher.add_handler(CommandHandler("remember", command_remember, filters=filter_admins))
     dispatcher.add_handler(CommandHandler("list", command_list))
 
-    # TODO: /begin @username1 @username2 command that begins tracking of users joining a chat
-    # TODO: /end command will end tracking of users
-
-    # TODO: /mention_all command for mentioning all users remembered
+    # TODO: /begin @username1 @username2 command that begins tracking of users joining a chat !admin
+    # TODO: /end command will end tracking of users !admin
+    # TODO: /mention_all command for mentioning all users remembered !admin
 
     # on noncommand i.e message
     dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, update_members))
