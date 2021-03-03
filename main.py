@@ -16,6 +16,7 @@ bot.
 
 import re
 import logging
+import datetime
 from typing import List
 
 import environ
@@ -45,12 +46,20 @@ I will check if users listed in first message are present in chat and tell you i
 
 
 class CHAT_DATA:
+    BEGAN_AT = 'began_at'
     MEMBERS_BY_USERNAME = 'members_by_username'
 
 
 def _restore_chat_data(update: Update, context: CallbackContext) -> None:
     if not context.chat_data:
-        context.chat_data.update(storage.restore_chat_data(chat_id=update.effective_chat.id))
+        from_file = storage.restore_chat_data(chat_id=update.effective_chat.id)
+        if CHAT_DATA.BEGAN_AT in from_file:
+            context.chat_data.update(from_file)
+        else:
+            context.chat_data.update({
+                CHAT_DATA.MEMBERS_BY_USERNAME: {},
+                CHAT_DATA.BEGAN_AT: datetime.datetime.utcnow().isoformat(),
+            })
 
 
 def _save_chat_data(update: Update, context: CallbackContext) -> None:
@@ -238,6 +247,7 @@ def main():
     dispatcher.add_handler(CommandHandler("list", command_list))
 
     # TODO: /begin @username1 @username2 command that begins tracking of users joining a chat
+    # TODO: /end command will end tracking of users
 
     # TODO: /mention_all command for mentioning all users remembered
 
