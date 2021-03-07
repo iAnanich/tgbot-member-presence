@@ -1,26 +1,8 @@
-#!/usr/bin/env python
-# pylint: disable=W0613, C0116
-# type: ignore[union-attr]
-# This program is dedicated to the public domain under the CC0 license.
-
-"""
-Simple Bot to reply to Telegram messages.
-First, a few handler functions are defined. Then, those functions are passed to
-the Dispatcher and registered at their respective places.
-Then, the bot is started and runs until we press Ctrl-C on the command line.
-Usage:
-Basic Echobot example, repeats messages.
-Press Ctrl-C on the command line or send a signal to the process to stop the
-bot.
-"""
-
-import re
-import logging
 import datetime
-from typing import List
+import logging
 
 import environ
-from telegram import Update, Bot, User
+from telegram import Update, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 import storage
@@ -32,11 +14,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 # Configure env
 env = environ.Env()
 env.read_env(file='.env')
-
 
 HELP = '''
 I was created to help you check out if user is in chat. 
@@ -130,7 +110,7 @@ def command_check(update: Update, context: CallbackContext) -> None:
     missing_usernames = mentioned_usernames.difference(present_usernames)
 
     if missing_usernames:
-        reply_msg = f'Following chat members are missing: {" ".join("@"+un for un in missing_usernames)}'
+        reply_msg = f'Following chat members are missing: {" ".join("@" + un for un in missing_usernames)}'
     else:
         reply_msg = f'All mentioned users are present!'
     update.effective_message.reply_text(reply_msg)
@@ -244,6 +224,7 @@ def update_members(update: Update, context: CallbackContext) -> None:
     for user in update.message.new_chat_members:
         _remember_user(user=user, context=context)
 
+    # FIXME - sometimes, it doesn't react as intended
     # forget left members
     if update.message.left_chat_member:
         _forget_chat_member(username=update.message.left_chat_member.username, context=context)
