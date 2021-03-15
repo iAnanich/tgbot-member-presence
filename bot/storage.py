@@ -1,7 +1,9 @@
 import json
 import os
 
-TGBOT_DATA_DIR = 'bot_data'
+from . import settings
+
+TGBOT_DATA_DIR = os.path.join(settings.BASE_DIR, 'bot_data')
 
 
 def build_chat_data_filename(chat_id: str or int) -> str:

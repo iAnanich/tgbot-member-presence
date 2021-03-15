@@ -1,6 +1,5 @@
-from typing import List
-
 import re
+from typing import List
 
 
 def _find_all_usernames(string: str) -> List[str]:

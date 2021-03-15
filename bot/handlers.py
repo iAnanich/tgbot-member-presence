@@ -1,22 +1,19 @@
 import datetime
 import logging
 
-import environ
 from telegram import Update, User
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import CallbackContext
 
-import storage
-from utils import extract_usernames_from_args
+from . import settings
+from . import storage
+from .utils import extract_usernames_from_args
 
 # Enable logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=settings.LOG_LEVEL,
 )
 logger = logging.getLogger(__name__)
-
-# Configure env
-env = environ.Env()
-env.read_env(file='.env')
 
 HELP = '''
 I was created to help you check out if user is in chat. 
@@ -85,8 +82,6 @@ def _forget_chat_member(username: str, context: CallbackContext) -> bool:
         return True
 
 
-# Define a few command handlers. These usually take the two arguments update and
-# context. Error handlers also receive the raised TelegramError object in error.
 def command_start(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /start is issued."""
     update.message.reply_text(HELP)
@@ -230,46 +225,3 @@ def update_members(update: Update, context: CallbackContext) -> None:
         _forget_chat_member(username=update.message.left_chat_member.username, context=context)
 
     _save_chat_data(update=update, context=context)
-
-
-def main():
-    """Start the bot."""
-
-    TGBOT_APIKEY = env.str('TGBOT_APIKEY')
-    ADMIN_USERNAMES = env.str('TGBOT_ADMIN_USERNAMES').split(',')
-    filter_admins = Filters.user(username=ADMIN_USERNAMES)
-
-    # Create the Updater and pass it your bot's token.
-    updater = Updater(TGBOT_APIKEY)
-
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
-
-    # on different commands - answer in Telegram
-    dispatcher.add_handler(CommandHandler("start", command_start))
-    dispatcher.add_handler(CommandHandler("help", command_help))
-    dispatcher.add_handler(CommandHandler("check", command_check))
-    dispatcher.add_handler(CommandHandler("check_in", command_check_in))
-    dispatcher.add_handler(CommandHandler("forget_me", command_forget_me))
-    dispatcher.add_handler(CommandHandler("forget", command_forget, filters=filter_admins))
-    dispatcher.add_handler(CommandHandler("remember", command_remember, filters=filter_admins))
-    dispatcher.add_handler(CommandHandler("list", command_list))
-
-    # TODO: /begin @username1 @username2 command that begins tracking of users joining a chat !admin
-    # TODO: /end command will end tracking of users !admin
-    # TODO: /mention_all command for mentioning all users remembered !admin
-
-    # on noncommand i.e message
-    dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, update_members))
-
-    # Start the Bot
-    updater.start_polling()
-
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-    updater.idle()
-
-
-if __name__ == '__main__':
-    main()
