@@ -19,6 +19,9 @@ HELP = '''
 I was created to help you check out if users are in chat.
 Source code: https://github.com/iAnanich/tgbot-member-presence
 
+How it works - bot tracks chat updates about users joining or leaving a chat.
+Bot does not require any permissions and functions well with privacy mode enabled.
+
 First - add me to a group chat and call /start command to enable my user joined/left tracking.
 Optionally, you can pass usernames (with @ character) with it and I will remember mentioned users as present in chat.
 Second - add some users.
@@ -36,6 +39,8 @@ Available commands:
 /help - get more instructions on how to use me
 /remember - (admin only) tell me to remember mentioned users for this chat
 /forget - (admin only) tell me to forget mentioned users for this chat
+/disable - (admin only) tell me to stop tracking users (it's enabled by default)
+/enable - (admin only) tell me to start tracking users
 
 Note: Admin only commands can be executed only by pre-defined admins.
 '''
@@ -49,23 +54,35 @@ class CHAT_DATA:
     TGID = 'tgid'
 
 
-def _restore_chat_data(update: Update, context: CallbackContext) -> None:
+def _restore_chat_data(update: Update, context: CallbackContext, create: bool = False) -> bool:
+    """Return False if data is not present nor in memory nor in storage."""
     if not context.chat_data:
         from_file = storage.restore_chat_data(chat_id=update.effective_chat.id)
         if CHAT_DATA.BEGAN_AT in from_file:
             context.chat_data.update(from_file)
-        else:
+        elif create:
             context.chat_data.update({
                 CHAT_DATA.MEMBERS_BY_USERNAME: {},
                 CHAT_DATA.BEGAN_AT: datetime.datetime.utcnow().isoformat(),
-                CHAT_DATA.ENABLED: True,
+                CHAT_DATA.ENABLED: False,
                 CHAT_DATA.TITLE: update.effective_chat.title,
                 CHAT_DATA.TGID: update.effective_chat.id,
             })
+        else:
+            return False
+    return True
 
 
 def _save_chat_data(update: Update, context: CallbackContext) -> None:
     storage.save_chat_data(chat_id=update.effective_chat.id, chat_data=context.chat_data)
+
+
+def _enable_tracking(update: Update, context: CallbackContext) -> None:
+    context.chat_data[CHAT_DATA.ENABLED] = True
+
+
+def _disable_tracking(update: Update, context: CallbackContext) -> None:
+    context.chat_data[CHAT_DATA.ENABLED] = False
 
 
 def _remember_chat_member(username: str, user_data: dict, context: CallbackContext) -> None:
@@ -113,12 +130,24 @@ def command_help(update: Update, context: CallbackContext) -> None:
 
 
 def command_debug(update: Update, context: CallbackContext) -> None:
-    """Help user understand the bot."""
+    """Display debug info."""
+    chat = update.effective_chat
     text = (
-        f'Chat ID: `{update.effective_chat.id}`\n'
-        f'Chat type: `{update.effective_chat.type}`\n'
-        f'Chat title: `{update.effective_chat.title}`\n'
+        f'Chat ID: `{chat.id}`\n'
+        f'Chat type: `{chat.type}`\n'
+        f'Chat title: `{chat.title}`\n'
     )
+    if chat.type in {chat.GROUP, chat.SUPERGROUP}:
+        try:
+            if _restore_chat_data(update=update, context=context):
+                text += (
+                    f'Tracking enabled: `{context.chat_data[CHAT_DATA.ENABLED]}`\n'
+                    f'Began at: `{context.chat_data[CHAT_DATA.BEGAN_AT]}`'
+                )
+            else:
+                text += f'No data for this chat yet.'
+        except Exception:
+            text += f'Could not retrieve additional chat data.\n'
     update.message.reply_markdown(text)
 
 
@@ -128,9 +157,11 @@ def command_start(update: Update, context: CallbackContext) -> None:
         update.effective_message.reply_text(f'Bot can be activated only by pre-defined admin.')
         return
 
-    _restore_chat_data(update=update, context=context)
+    _restore_chat_data(update=update, context=context, create=True)
 
     _remember_caller(update=update, context=context)
+
+    _enable_tracking(update=update, context=context)
 
     mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
 
@@ -141,7 +172,7 @@ def command_start(update: Update, context: CallbackContext) -> None:
             _remember_chat_member(username=username, user_data={}, context=context)
         reply_msg = f'Successful activation!\nRemembered following chat members: ' + ' '.join(mentioned_usernames)
     else:
-        reply_msg = f'No users mentioned - done nothing.'
+        reply_msg = f'Successful activation!'
 
     _save_chat_data(update=update, context=context)
 
@@ -150,7 +181,8 @@ def command_start(update: Update, context: CallbackContext) -> None:
 
 def command_check(update: Update, context: CallbackContext) -> None:
     """Check presence of users listed in message, reply to which calls the command."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
 
     _remember_caller(update=update, context=context)
 
@@ -181,7 +213,8 @@ def command_check(update: Update, context: CallbackContext) -> None:
 
 def command_check_in(update: Update, context: CallbackContext) -> None:
     """Remember that user that called a command is a member of chat."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
 
     caller_is_new = _remember_caller(update=update, context=context)
 
@@ -196,7 +229,8 @@ def command_check_in(update: Update, context: CallbackContext) -> None:
 
 def command_forget_me(update: Update, context: CallbackContext) -> None:
     """Forget chat member who called this command."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
 
     caller_was_in_memory = _forget_chat_member(update.effective_user.username, context=context)
 
@@ -211,7 +245,8 @@ def command_forget_me(update: Update, context: CallbackContext) -> None:
 
 def command_forget(update: Update, context: CallbackContext) -> None:
     """Forget mentioned users."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
 
     _remember_caller(update=update, context=context)
 
@@ -247,7 +282,8 @@ def command_forget(update: Update, context: CallbackContext) -> None:
 
 def command_remember(update: Update, context: CallbackContext) -> None:
     """Remember mentioned users as if they are in chat."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
 
     _remember_caller(update=update, context=context)
 
@@ -269,7 +305,8 @@ def command_remember(update: Update, context: CallbackContext) -> None:
 
 def command_list(update: Update, context: CallbackContext) -> None:
     """Remember mentioned users as if they are in chat."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
 
     _remember_caller(update=update, context=context)
 
@@ -280,9 +317,50 @@ def command_list(update: Update, context: CallbackContext) -> None:
     update.effective_message.reply_text(reply_msg)
 
 
+def command_enable(update: Update, context: CallbackContext) -> None:
+    """Enable users tracking."""
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
+
+    _remember_caller(update=update, context=context)
+
+    if context.chat_data[CHAT_DATA.ENABLED]:
+        reply_msg = 'User tracking already enabled.'
+    else:
+        _enable_tracking(update=update, context=context)
+        reply_msg = f'User tracking successfully enabled.'
+
+    _save_chat_data(update=update, context=context)
+
+    update.effective_message.reply_text(reply_msg)
+
+
+def command_disable(update: Update, context: CallbackContext) -> None:
+    """Disable users tracking."""
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
+
+    _remember_caller(update=update, context=context)
+
+    if not context.chat_data[CHAT_DATA.ENABLED]:
+        reply_msg = 'User tracking already disabled.'
+    else:
+        _disable_tracking(update=update, context=context)
+        reply_msg = f'User tracking successfully disabled.'
+
+    _save_chat_data(update=update, context=context)
+
+    update.effective_message.reply_text(reply_msg)
+
+
 def update_members(update: Update, context: CallbackContext) -> None:
     """Remember new chat users."""
-    _restore_chat_data(update=update, context=context)
+    if not _restore_chat_data(update=update, context=context):
+        return
+
+    # Quit if tracking is disabled
+    if not context.chat_data[CHAT_DATA.ENABLED]:
+        return
 
     if CHAT_DATA.MEMBERS_BY_USERNAME not in context.chat_data:
         context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME] = []

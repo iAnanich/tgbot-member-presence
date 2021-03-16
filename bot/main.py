@@ -21,6 +21,7 @@ def main():
     """Start the bot."""
 
     filter_admins = Filters.user(username=settings.TGBOT_ADMIN_USERNAMES)
+    filter_groups = Filters.chat_type.supergroup | Filters.chat_type.group
 
     # Create the Updater and pass it your bot's token.
     updater = Updater(settings.TGBOT_APIKEY)
@@ -30,17 +31,17 @@ def main():
 
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("help", handlers.command_help))
-    dispatcher.add_handler(CommandHandler("debug", handlers.command_debug))
     dispatcher.add_handler(CommandHandler("start", handlers.command_help, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("check", handlers.command_check))
-    dispatcher.add_handler(CommandHandler("check_in", handlers.command_check_in))
-    dispatcher.add_handler(CommandHandler("forget_me", handlers.command_forget_me))
-    dispatcher.add_handler(CommandHandler("forget", handlers.command_forget, filters=filter_admins))
-    dispatcher.add_handler(CommandHandler("remember", handlers.command_remember, filters=filter_admins))
-    dispatcher.add_handler(CommandHandler("start", handlers.command_start))
-    dispatcher.add_handler(CommandHandler("list", handlers.command_list))
-
-    # TODO: /enable and /disable commands (admin only)
+    dispatcher.add_handler(CommandHandler("check", handlers.command_check, filters=filter_groups))
+    dispatcher.add_handler(CommandHandler("check_in", handlers.command_check_in, filters=filter_groups))
+    dispatcher.add_handler(CommandHandler("forget_me", handlers.command_forget_me, filters=filter_groups))
+    dispatcher.add_handler(CommandHandler("forget", handlers.command_forget, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("remember", handlers.command_remember, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("enable", handlers.command_enable, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("disable", handlers.command_disable, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("debug", handlers.command_debug, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("start", handlers.command_start, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("list", handlers.command_list, filters=filter_groups))
 
     # on noncommand i.e message
     dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, handlers.update_members))
