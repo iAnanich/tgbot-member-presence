@@ -17,9 +17,27 @@ logger = logging.getLogger(__name__)
 
 HELP = '''
 I was created to help you check out if users are in chat.
+Source code: https://github.com/iAnanich/tgbot-member-presence
 
-Add me to a chat, write down nicknames (in a @nIck_Name14 format) and call me with /check command in separate message.
-I will check if users listed in first message are present in chat and tell you if someone is missing.
+First - add me to a group chat and call /start command to enable my user joined/left tracking.
+Optionally, you can pass usernames (with @ character) with it and I will remember mentioned users as present in chat.
+Second - add some users.
+Third - /list to known who I remember and /check to ensure everyone is present.
+Note: /check command looks for usernames in both command arguments (message with command itself) 
+and message that you are replying to. this can be useful if you have a list of usernames already, 
+and want to re-check it a few times. Although, changing message with /check command will trigger me too.
+
+Available commands:
+/start - begin my work in new chat, arguments work identical to /remember
+/check - check that every mentioned (both in command arguments and reply-to message) user is a member of this chat
+/list - list all chat members in memory
+/check_in - tell me that you are in this chat
+/forget_me - tell me to forget your presence in this chat
+/help - get more instructions on how to use me
+/remember - (admin only) tell me to remember mentioned users for this chat
+/forget - (admin only) tell me to forget mentioned users for this chat
+
+Note: Admin only commands can be executed only by pre-defined admins.
 '''
 
 

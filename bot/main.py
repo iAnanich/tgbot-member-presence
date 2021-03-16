@@ -32,6 +32,7 @@ def main():
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("start", command_start))
     dispatcher.add_handler(CommandHandler("help", command_help))
+    dispatcher.add_handler(CommandHandler("start", command_help, filters=Filters.chat_type.private))
     dispatcher.add_handler(CommandHandler("check", command_check))
     dispatcher.add_handler(CommandHandler("check_in", command_check_in))
     dispatcher.add_handler(CommandHandler("forget_me", command_forget_me))
