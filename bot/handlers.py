@@ -45,6 +45,8 @@ class CHAT_DATA:
     BEGAN_AT = 'began_at'
     MEMBERS_BY_USERNAME = 'members_by_username'
     ENABLED = 'enabled'
+    TITLE = 'title'
+    TGID = 'tgid'
 
 
 def _restore_chat_data(update: Update, context: CallbackContext) -> None:
@@ -56,6 +58,9 @@ def _restore_chat_data(update: Update, context: CallbackContext) -> None:
             context.chat_data.update({
                 CHAT_DATA.MEMBERS_BY_USERNAME: {},
                 CHAT_DATA.BEGAN_AT: datetime.datetime.utcnow().isoformat(),
+                CHAT_DATA.ENABLED: True,
+                CHAT_DATA.TITLE: update.effective_chat.title,
+                CHAT_DATA.TGID: update.effective_chat.id,
             })
 
 
