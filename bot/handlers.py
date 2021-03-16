@@ -16,7 +16,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 HELP = '''
-I was created to help you check out if user is in chat. 
+I was created to help you check out if users are in chat.
+
 Add me to a chat, write down nicknames (in a @nIck_Name14 format) and call me with /check command in separate message.
 I will check if users listed in first message are present in chat and tell you if someone is missing.
 '''
@@ -100,12 +101,24 @@ def command_check(update: Update, context: CallbackContext) -> None:
 
     _save_chat_data(update=update, context=context)
 
+    # potential usernames from reply-to message
+    reply_to_potential_mentions = update.effective_message.reply_to_message.text.replace('\n', ' ').split(' ')
+
+    mentioned_usernames = set(extract_usernames_from_args(
+        arguments=context.args + reply_to_potential_mentions,
+        clean=True,
+    ))
     present_usernames = set(context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys())
-    mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
     missing_usernames = mentioned_usernames.difference(present_usernames)
 
     if missing_usernames:
-        reply_msg = f'Following chat members are missing: {" ".join("@" + un for un in missing_usernames)}'
+        mentions = "\n".join(f"{i + 1}) @" + un for i, un in enumerate(missing_usernames))
+        reply_msg = (
+            f'Following chat members are missing:\n'
+            f'{mentions}\n'
+            f'If You got mentioned by this message, please, call me with /check_in command '
+            f'(You can just click on it in this message, its highlighted).'
+        )
     else:
         reply_msg = f'All mentioned users are present!'
     update.effective_message.reply_text(reply_msg)
