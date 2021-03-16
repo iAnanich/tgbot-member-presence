@@ -12,4 +12,4 @@ LOG_LEVEL = env.str('LOG_LEVEL', default='INFO')
 
 TGBOT_APIKEY = env.str('TGBOT_APIKEY')
 
-TGBOT_ADMIN_USERNAMES = env.str('TGBOT_ADMIN_USERNAMES').split(',')
+TGBOT_ADMIN_USERNAMES = env.str('TGBOT_ADMIN_USERNAMES').replace('@', '').split(',')

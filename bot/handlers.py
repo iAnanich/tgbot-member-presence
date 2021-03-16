@@ -44,6 +44,7 @@ Note: Admin only commands can be executed only by pre-defined admins.
 class CHAT_DATA:
     BEGAN_AT = 'began_at'
     MEMBERS_BY_USERNAME = 'members_by_username'
+    ENABLED = 'enabled'
 
 
 def _restore_chat_data(update: Update, context: CallbackContext) -> None:
@@ -101,14 +102,45 @@ def _forget_chat_member(username: str, context: CallbackContext) -> bool:
         return True
 
 
-def command_start(update: Update, context: CallbackContext) -> None:
-    """Send a message when the command /start is issued."""
-    update.message.reply_text(HELP)
-
-
 def command_help(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /help is issued."""
     update.message.reply_text(HELP)
+
+
+def command_debug(update: Update, context: CallbackContext) -> None:
+    """Help user understand the bot."""
+    text = (
+        f'Chat ID: `{update.effective_chat.id}`\n'
+        f'Chat type: `{update.effective_chat.type}`\n'
+        f'Chat title: `{update.effective_chat.title}`\n'
+    )
+    update.message.reply_markdown(text)
+
+
+def command_start(update: Update, context: CallbackContext) -> None:
+    """Remember mentioned users as if they are in chat."""
+    if update.effective_user.username not in settings.TGBOT_ADMIN_USERNAMES:
+        update.effective_message.reply_text(f'Bot can be activated only by pre-defined admin.')
+        return
+
+    _restore_chat_data(update=update, context=context)
+
+    _remember_caller(update=update, context=context)
+
+    mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
+
+    if mentioned_usernames:
+        for username in mentioned_usernames:
+            if username in context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys():
+                continue
+            _remember_chat_member(username=username, user_data={}, context=context)
+        reply_msg = f'Successful activation!\nRemembered following chat members: ' + ' '.join(mentioned_usernames)
+    else:
+        reply_msg = f'No users mentioned - done nothing.'
+
+    _save_chat_data(update=update, context=context)
+
+    update.effective_message.reply_text(reply_msg)
 
 
 def command_check(update: Update, context: CallbackContext) -> None:
@@ -215,14 +247,18 @@ def command_remember(update: Update, context: CallbackContext) -> None:
     _remember_caller(update=update, context=context)
 
     mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
-    for username in mentioned_usernames:
-        if username in context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys():
-            continue
-        _remember_chat_member(username=username, user_data={}, context=context)
+
+    if mentioned_usernames:
+        for username in mentioned_usernames:
+            if username in context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys():
+                continue
+            _remember_chat_member(username=username, user_data={}, context=context)
+        reply_msg = f'Successfully remembered following chat members: ' + ' '.join(mentioned_usernames)
+    else:
+        reply_msg = f'No users mentioned - done nothing.'
 
     _save_chat_data(update=update, context=context)
 
-    reply_msg = f'Successfully remembered following chat members: ' + ' '.join(mentioned_usernames)
     update.effective_message.reply_text(reply_msg)
 
 

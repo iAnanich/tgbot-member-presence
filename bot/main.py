@@ -2,8 +2,7 @@ import logging
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
-from bot.handlers import command_start, command_help, command_check, command_check_in, command_forget_me, \
-    command_forget, command_remember, command_list, update_members
+from . import handlers
 from . import settings
 
 # Enable logging
@@ -30,22 +29,21 @@ def main():
     dispatcher = updater.dispatcher
 
     # on different commands - answer in Telegram
-    dispatcher.add_handler(CommandHandler("start", command_start))
-    dispatcher.add_handler(CommandHandler("help", command_help))
-    dispatcher.add_handler(CommandHandler("start", command_help, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("check", command_check))
-    dispatcher.add_handler(CommandHandler("check_in", command_check_in))
-    dispatcher.add_handler(CommandHandler("forget_me", command_forget_me))
-    dispatcher.add_handler(CommandHandler("forget", command_forget, filters=filter_admins))
-    dispatcher.add_handler(CommandHandler("remember", command_remember, filters=filter_admins))
-    dispatcher.add_handler(CommandHandler("list", command_list))
+    dispatcher.add_handler(CommandHandler("help", handlers.command_help))
+    dispatcher.add_handler(CommandHandler("debug", handlers.command_debug))
+    dispatcher.add_handler(CommandHandler("start", handlers.command_help, filters=Filters.chat_type.private))
+    dispatcher.add_handler(CommandHandler("check", handlers.command_check))
+    dispatcher.add_handler(CommandHandler("check_in", handlers.command_check_in))
+    dispatcher.add_handler(CommandHandler("forget_me", handlers.command_forget_me))
+    dispatcher.add_handler(CommandHandler("forget", handlers.command_forget, filters=filter_admins))
+    dispatcher.add_handler(CommandHandler("remember", handlers.command_remember, filters=filter_admins))
+    dispatcher.add_handler(CommandHandler("start", handlers.command_start))
+    dispatcher.add_handler(CommandHandler("list", handlers.command_list))
 
-    # TODO: /begin @username1 @username2 command that begins tracking of users joining a chat !admin
-    # TODO: /end command will end tracking of users !admin
-    # TODO: /mention_all command for mentioning all users remembered !admin
+    # TODO: /enable and /disable commands (admin only)
 
     # on noncommand i.e message
-    dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, update_members))
+    dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, handlers.update_members))
 
     # Start the Bot
     updater.start_polling()
