@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import List, Iterable, Iterator
 
 
 def _find_all_usernames(string: str) -> List[str]:
@@ -22,3 +22,14 @@ def extract_usernames_from_args(arguments: List[str], clean: bool = False) -> Li
         )
         if full_username_list
     ]
+
+
+def iter_pack(iterable: Iterable, size: int) -> Iterator:
+    pack_buffer = []
+    for i, el in enumerate(iterable):
+        pack_buffer.append(el)
+        if (i + 1) % size == 0:
+            yield iter(pack_buffer)
+            pack_buffer = []
+    else:
+        yield iter(pack_buffer)

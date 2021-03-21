@@ -6,7 +6,7 @@ from telegram.ext import CallbackContext
 
 from . import settings
 from . import storage
-from .utils import extract_usernames_from_args
+from .utils import extract_usernames_from_args, iter_pack
 
 # Enable logging
 logging.basicConfig(
@@ -203,16 +203,23 @@ def command_check(update: Update, context: CallbackContext) -> None:
     missing_usernames = mentioned_usernames.difference(present_usernames)
 
     if missing_usernames:
-        mentions = "\n".join(f"{i + 1}) @" + un for i, un in enumerate(missing_usernames))
-        reply_msg = (
-            f'Following chat members are missing:\n'
-            f'{mentions}\n'
-            f'If You got mentioned by this message, please, call me with /check_in command '
-            f'(You can just click on it in this message, its highlighted).'
-        )
+        username_packs = list(iter_pack(missing_usernames, size=settings.TGBOT_MAX_MENTIONS_PER_MESSAGE))
+        for i, usernames_pack in enumerate(username_packs):
+            mentions = [f'@{un}' for un in usernames_pack]
+            reply_html = (
+                f'Following <code>{len(mentions)}</code> chat members '
+                f'(<code>{len(missing_usernames)}</code> in total) are missing '
+                f'(message <code>{i + 1}</code> of <code>{len(username_packs)}</code>):\n'
+            )
+            reply_html += ' '.join(mentions) + '\n'
+            reply_html += (
+                f'If <b>You</b> got mentioned by this message, '
+                f'please, click on /check_in command.'
+            )
+            update.effective_message.reply_html(reply_html)
     else:
-        reply_msg = f'All mentioned users are present!'
-    update.effective_message.reply_text(reply_msg)
+        reply_text = f'All mentioned users are present!'
+        update.effective_message.reply_text(reply_text)
 
 
 def command_check_in(update: Update, context: CallbackContext) -> None:
