@@ -158,11 +158,14 @@ def command_start(update: Update, context: CallbackContext) -> None:
         update.effective_message.reply_text(f'Bot can be activated only by pre-defined admin.')
         return
 
-    _restore_chat_data(update=update, context=context, create=True)
+    if not _restore_chat_data(update=update, context=context, create=True):
+        reply_html = 'Successful activation!\nUse /enable command to begin tracking users.\n'
+    else:
+        reply_html = 'Bot already activated.\n'
+        if not context.chat_data[CHAT_DATA.ENABLED]:
+            reply_html += 'Use /enable command to begin tracking users.\n'
 
     _remember_caller(update=update, context=context)
-
-    _enable_tracking(update=update, context=context)
 
     mentioned_usernames = set(extract_usernames_from_args(arguments=context.args, clean=True))
 
@@ -171,13 +174,20 @@ def command_start(update: Update, context: CallbackContext) -> None:
             if username in context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys():
                 continue
             _remember_chat_member(username=username, user_data={}, context=context)
-        reply_msg = f'Successful activation!\nRemembered following chat members: ' + ' '.join(mentioned_usernames)
-    else:
-        reply_msg = f'Successful activation!'
+        reply_html += f'Remembered following chat members: ' + ' '.join(mentioned_usernames) + '\n'
 
     _save_chat_data(update=update, context=context)
 
-    update.effective_message.reply_text(reply_msg)
+    reply_html += (
+        '\n'
+        'To users whp are already members of this chat:\n'
+        'To make me remember about <b>Your</b> presence in this chat, '
+        'click on /check_in command.\n'
+        'To make me forget about <b>Your</b> presence in this chat, '
+        'click on /forget_me command.\n'
+    )
+
+    update.effective_message.reply_html(reply_html)
 
 
 def command_check(update: Update, context: CallbackContext) -> None:
@@ -363,14 +373,14 @@ def command_enable(update: Update, context: CallbackContext) -> None:
     _remember_caller(update=update, context=context)
 
     if context.chat_data[CHAT_DATA.ENABLED]:
-        reply_msg = 'User tracking already enabled.'
+        reply_text = 'User tracking already enabled.'
     else:
         _enable_tracking(update=update, context=context)
-        reply_msg = f'User tracking successfully enabled.'
+        reply_text = f'User tracking successfully enabled.'
 
     _save_chat_data(update=update, context=context)
 
-    update.effective_message.reply_text(reply_msg)
+    update.effective_message.reply_text(reply_text)
 
 
 def command_disable(update: Update, context: CallbackContext) -> None:
@@ -381,14 +391,14 @@ def command_disable(update: Update, context: CallbackContext) -> None:
     _remember_caller(update=update, context=context)
 
     if not context.chat_data[CHAT_DATA.ENABLED]:
-        reply_msg = 'User tracking already disabled.'
+        reply_text = 'User tracking already disabled.'
     else:
         _disable_tracking(update=update, context=context)
-        reply_msg = f'User tracking successfully disabled.'
+        reply_text = f'User tracking successfully disabled.'
 
     _save_chat_data(update=update, context=context)
 
-    update.effective_message.reply_text(reply_msg)
+    update.effective_message.reply_text(reply_text)
 
 
 def update_members(update: Update, context: CallbackContext) -> None:

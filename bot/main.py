@@ -32,15 +32,21 @@ def main():
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("help", handlers.command_help))
     dispatcher.add_handler(CommandHandler("start", handlers.command_help, filters=Filters.chat_type.private))
-    dispatcher.add_handler(CommandHandler("check", handlers.command_check, filters=filter_groups))
-    dispatcher.add_handler(CommandHandler("check_in", handlers.command_check_in, filters=filter_groups))
-    dispatcher.add_handler(CommandHandler("forget_me", handlers.command_forget_me, filters=filter_groups))
-    dispatcher.add_handler(CommandHandler("forget", handlers.command_forget, filters=filter_admins & filter_groups))
-    dispatcher.add_handler(CommandHandler("remember", handlers.command_remember, filters=filter_admins & filter_groups))
-    dispatcher.add_handler(CommandHandler("enable", handlers.command_enable, filters=filter_admins & filter_groups))
-    dispatcher.add_handler(CommandHandler("disable", handlers.command_disable, filters=filter_admins & filter_groups))
+
     dispatcher.add_handler(CommandHandler("debug", handlers.command_debug, filters=filter_admins & filter_groups))
     dispatcher.add_handler(CommandHandler("start", handlers.command_start, filters=filter_admins & filter_groups))
+
+    dispatcher.add_handler(CommandHandler("check", handlers.command_check, filters=filter_groups))
+
+    dispatcher.add_handler(CommandHandler("check_in", handlers.command_check_in, filters=filter_groups))
+    dispatcher.add_handler(CommandHandler("forget_me", handlers.command_forget_me, filters=filter_groups))
+
+    dispatcher.add_handler(CommandHandler("forget", handlers.command_forget, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("remember", handlers.command_remember, filters=filter_admins & filter_groups))
+
+    dispatcher.add_handler(CommandHandler("enable", handlers.command_enable, filters=filter_admins & filter_groups))
+    dispatcher.add_handler(CommandHandler("disable", handlers.command_disable, filters=filter_admins & filter_groups))
+
     dispatcher.add_handler(CommandHandler("list", handlers.command_list, filters=filter_groups))
     dispatcher.add_handler(
         CommandHandler("mention_all", handlers.command_mention_all, filters=filter_admins & filter_groups))
