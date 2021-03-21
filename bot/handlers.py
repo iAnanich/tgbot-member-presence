@@ -189,7 +189,11 @@ def command_check(update: Update, context: CallbackContext) -> None:
     _save_chat_data(update=update, context=context)
 
     # potential usernames from reply-to message
-    reply_to_potential_mentions = update.effective_message.reply_to_message.text.replace('\n', ' ').split(' ')
+    if update.effective_message.reply_to_message:
+        reply_to_msg_text = update.effective_message.reply_to_message.text
+        reply_to_potential_mentions = reply_to_msg_text.replace('\n', ' ').split(' ')
+    else:
+        reply_to_potential_mentions = []
 
     mentioned_usernames = set(extract_usernames_from_args(
         arguments=context.args + reply_to_potential_mentions,
