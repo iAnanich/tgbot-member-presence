@@ -42,6 +42,8 @@ def main():
     dispatcher.add_handler(CommandHandler("debug", handlers.command_debug, filters=filter_admins & filter_groups))
     dispatcher.add_handler(CommandHandler("start", handlers.command_start, filters=filter_admins & filter_groups))
     dispatcher.add_handler(CommandHandler("list", handlers.command_list, filters=filter_groups))
+    dispatcher.add_handler(
+        CommandHandler("mention_all", handlers.command_mention_all, filters=filter_admins & filter_groups))
 
     # on noncommand i.e message
     dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, handlers.update_members))

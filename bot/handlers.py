@@ -41,6 +41,7 @@ Available commands:
 /forget - (admin only) tell me to forget mentioned users for this chat
 /disable - (admin only) tell me to stop tracking users (it's enabled by default)
 /enable - (admin only) tell me to start tracking users
+/mention_all - (admin only) mention all users from memory
 
 Note: Admin only commands can be executed only by pre-defined admins.
 '''
@@ -208,8 +209,8 @@ def command_check(update: Update, context: CallbackContext) -> None:
             mentions = [f'@{un}' for un in usernames_pack]
             reply_html = (
                 f'Following <code>{len(mentions)}</code> chat members '
-                f'(<code>{len(missing_usernames)}</code> in total) are missing '
-                f'(message <code>{i + 1}</code> of <code>{len(username_packs)}</code>):\n'
+                f'(<code>{len(missing_usernames)}</code> in total) are missing: '
+                f'(message <code>{i + 1}</code> of <code>{len(username_packs)}</code>)\n'
             )
             reply_html += ' '.join(mentions) + '\n'
             reply_html += (
@@ -326,6 +327,32 @@ def command_list(update: Update, context: CallbackContext) -> None:
     all_usernames = context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys()
     reply_msg = f'Listing all chat members in my memory:\n* ' + '\n* '.join(all_usernames)
     update.effective_message.reply_text(reply_msg)
+
+
+def command_mention_all(update: Update, context: CallbackContext) -> None:
+    """Mention all users from memory."""
+    if not _restore_chat_data(update=update, context=context):
+        update.effective_message.reply_text(f'Initialise me with /start command first.')
+
+    _remember_caller(update=update, context=context)
+
+    _save_chat_data(update=update, context=context)
+
+    all_usernames = context.chat_data[CHAT_DATA.MEMBERS_BY_USERNAME].keys()
+    username_packs = list(iter_pack(all_usernames, size=settings.TGBOT_MAX_MENTIONS_PER_MESSAGE))
+    for i, usernames_pack in enumerate(username_packs):
+        mentions = [f'@{un}' for un in usernames_pack]
+        reply_html = (
+            f'Mentioning <code>{len(mentions)}</code> chat members '
+            f'(<code>{len(all_usernames)}</code> in total): '
+            f'(message <code>{i + 1}</code> of <code>{len(username_packs)}</code>)\n'
+        )
+        reply_html += ' '.join(mentions) + '\n'
+        reply_html += (
+            f'If <b>You</b> want to get mentioned by messages like this one, '
+            f'please, click on /check_in command.'
+        )
+        update.effective_message.reply_html(reply_html)
 
 
 def command_enable(update: Update, context: CallbackContext) -> None:
